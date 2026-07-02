@@ -223,7 +223,7 @@ async function fetchMomentReplies(momentId: string): Promise<MomentReplyDTO[]> {
   if (repliesError) throw new Error(repliesError.message);
 
   return (replyRows ?? []).map((row) => {
-    const author = row.author as {
+    const author = row.author as unknown as {
       user_id?: string;
       display_name: string | null;
       email: string | null;
@@ -289,7 +289,7 @@ export async function getMomentActivity(
 
   const viewers: MomentViewerDTO[] = (views ?? [])
     .map((row) => {
-      const viewer = row.viewer as {
+      const viewer = row.viewer as unknown as {
         id: string;
         user_id: string;
         display_name: string | null;
@@ -340,7 +340,7 @@ export async function createMomentReply(
     throw new Error('Moment expired');
   }
 
-  const momentAuthor = moment.author as {
+  const momentAuthor = moment.author as unknown as {
     user_id: string;
     display_name: string | null;
     email: string | null;
@@ -465,7 +465,7 @@ export async function createMomentReply(
     });
   }
 
-  const author = row.author as {
+  const author = row.author as unknown as {
     user_id: string;
     display_name: string | null;
     email: string | null;
@@ -504,7 +504,7 @@ export async function buildMomentsFeed(viewerProfileId: string): Promise<MomentA
 
   if (error) throw new Error(error.message);
 
-  const moments = (rows ?? []) as Array<
+  const moments = (rows ?? []) as unknown as Array<
     MomentRow & { author: MomentAuthorDTO | null }
   >;
 
@@ -596,7 +596,7 @@ export async function buildMomentsFeed(viewerProfileId: string): Promise<MomentA
       )
       .in('id', reelIds);
     for (const row of reelRows ?? []) {
-      const author = row.author as { display_name: string | null; email: string | null } | null;
+      const author = row.author as unknown as { display_name: string | null; email: string | null } | null;
       const authorName =
         author?.display_name?.trim() || author?.email?.split('@')[0] || 'Creator';
       reelRefMap.set(row.id as string, {

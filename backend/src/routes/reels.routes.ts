@@ -262,8 +262,8 @@ router.get(
         id: `like-${row.id}`,
         type: 'like',
         created_at: row.created_at as string,
-        actor: row.actor as Record<string, unknown> | null,
-        reel: row.reel as Record<string, unknown> | null,
+        actor: row.actor as unknown as Record<string, unknown> | null,
+        reel: row.reel as unknown as Record<string, unknown> | null,
       });
     }
 
@@ -272,8 +272,8 @@ router.get(
         id: `comment-${row.id}`,
         type: 'comment',
         created_at: row.created_at as string,
-        actor: row.actor as Record<string, unknown> | null,
-        reel: row.reel as Record<string, unknown> | null,
+        actor: row.actor as unknown as Record<string, unknown> | null,
+        reel: row.reel as unknown as Record<string, unknown> | null,
         comment: { id: row.id as string, content: row.content as string },
       });
     }

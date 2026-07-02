@@ -112,6 +112,7 @@ function resolveMediaItems(body: z.infer<typeof createMomentSchema>) {
         media_type: 'text' as const,
         caption: body.caption?.trim() || null,
         text_background: body.text_background?.trim() || 'ocean',
+        thumbnail_url: null,
       },
     ];
   }
