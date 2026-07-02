@@ -1,9 +1,8 @@
 /**
- * USB-connected Android: map phone localhost → PC so dev client can reach Metro (8081) and the API.
- * Run: npm run adb:reverse
+ * Map device localhost → PC for Metro (8081) and the API port.
+ * Applies to every connected Android device unless ANDROID_SERIAL is set.
  *
- * Override target: set ANDROID_SERIAL=097785432V004918
- * Override API port: set PORT=3002 (must match backend/.env and EXPO_PUBLIC_API_URL)
+ * Run: npm run adb:reverse
  */
 const { execSync } = require('child_process');
 
@@ -24,50 +23,28 @@ function listDevices() {
     .filter((d) => d.serial && d.state === 'device');
 }
 
-function pickSerial(devices) {
-  if (process.env.ANDROID_SERIAL) {
-    return process.env.ANDROID_SERIAL;
-  }
-  if (devices.length === 0) {
-    return null;
-  }
-  if (devices.length === 1) {
-    return devices[0].serial;
-  }
-  // Prefer physical USB device over emulator when both are connected.
-  const physical = devices.find((d) => !d.serial.startsWith('emulator-'));
-  if (physical) {
-    console.log(`[adb] Multiple devices — using phone ${physical.serial}`);
-    if (devices.length > 1) {
-      console.log(
-        `[adb] Others: ${devices
-          .filter((d) => d.serial !== physical.serial)
-          .map((d) => d.serial)
-          .join(', ')}`
-      );
+function reverseForSerial(serial) {
+  const adbTarget = `-s ${serial}`;
+  for (const port of ports) {
+    try {
+      execSync(`adb ${adbTarget} reverse tcp:${port} tcp:${port}`, { stdio: 'inherit' });
+      console.log(`[adb] ${serial}: reverse tcp:${port} → PC`);
+    } catch {
+      console.warn(`[adb] failed for port ${port} on ${serial}`);
+      process.exitCode = 1;
     }
-    return physical.serial;
   }
-  console.log(`[adb] Multiple emulators — using ${devices[0].serial}`);
-  return devices[0].serial;
 }
 
 const devices = listDevices();
-const serial = pickSerial(devices);
 
-if (!serial) {
-  console.error('[adb] No device found. Connect your phone with USB debugging enabled.');
+if (process.env.ANDROID_SERIAL) {
+  reverseForSerial(process.env.ANDROID_SERIAL);
+} else if (devices.length === 0) {
+  console.error('[adb] No device found. Start an emulator or connect a phone with USB debugging.');
   process.exit(1);
-}
-
-const adbTarget = `-s ${serial}`;
-
-for (const port of ports) {
-  try {
-    execSync(`adb ${adbTarget} reverse tcp:${port} tcp:${port}`, { stdio: 'inherit' });
-    console.log(`[adb] ${serial}: reverse tcp:${port} → PC`);
-  } catch {
-    console.warn(`[adb] failed for port ${port} on ${serial}`);
-    process.exitCode = 1;
+} else {
+  for (const device of devices) {
+    reverseForSerial(device.serial);
   }
 }

@@ -17,6 +17,11 @@ config.resolver = {
   ...config.resolver,
   assetExts: config.resolver.assetExts.filter((ext) => ext !== 'svg'),
   sourceExts: [...config.resolver.sourceExts, 'svg'],
+  blockList: [
+    ...(config.resolver.blockList ?? []),
+    /\.expo-tmp-bundle[^/]*$/,
+    /[/\\]test\.hbc$/,
+  ],
   resolveRequest: (context, moduleName, platform) => {
     if (moduleName === 'hls.js' || moduleName === 'hls.js/dist/hls.js') {
       return {
