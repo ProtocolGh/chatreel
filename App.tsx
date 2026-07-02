@@ -11,12 +11,18 @@ import { Provider as PaperProvider } from 'react-native-paper';
 import { RootNavigator } from './src/navigation/RootNavigator';
 import { ReelUploadToast } from './src/components/ReelUploadToast';
 import { MomentUploadToast } from './src/components/MomentUploadToast';
+import { useWebIconFonts } from './src/lib/loadWebIconFonts';
 
 import 'react-native-get-random-values';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
 export default function App() {
+  const iconFontsReady = useWebIconFonts();
+
+  if (!iconFontsReady) {
+    return null;
+  }
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>

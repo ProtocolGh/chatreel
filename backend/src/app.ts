@@ -2,7 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
-import { env } from './config/env';
+import { env, getCorsOriginOption } from './config/env';
 import { errorHandler } from './middleware/errorHandler';
 import authRoutes from './routes/auth.routes';
 import profilesRoutes from './routes/profiles.routes';
@@ -25,7 +25,7 @@ export function createApp() {
   app.use(helmet());
   app.use(
     cors({
-      origin: env.corsOrigin === '*' ? true : env.corsOrigin.split(','),
+      origin: getCorsOriginOption(),
       credentials: true,
     })
   );

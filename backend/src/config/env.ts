@@ -1,3 +1,4 @@
+import type { CorsOptions } from 'cors';
 import dotenv from 'dotenv';
 
 dotenv.config();
@@ -16,7 +17,8 @@ export const env = {
   supabaseUrl: required('SUPABASE_URL'),
   supabaseServiceRoleKey: required('SUPABASE_SERVICE_ROLE_KEY'),
   supabaseAnonKey: process.env.SUPABASE_ANON_KEY ?? '',
-  corsOrigin: process.env.CORS_ORIGIN ?? '*',
+  /** Comma-separated origins, or * to allow any origin. Empty env var is treated as *. */
+  corsOrigin: (process.env.CORS_ORIGIN ?? '*').trim() || '*',
   liveKit: {
     apiKey: process.env.LIVEKIT_API_KEY ?? '',
     apiSecret: process.env.LIVEKIT_API_SECRET ?? '',
@@ -31,4 +33,14 @@ export const env = {
 
 export function isLiveKitConfigured(): boolean {
   return Boolean(env.liveKit.apiKey && env.liveKit.apiSecret && env.liveKit.url);
+}
+
+/** CORS origin option for the cors middleware (supports * or comma-separated list). */
+export function getCorsOriginOption(): CorsOptions['origin'] {
+  if (env.corsOrigin === '*') return true;
+  const allowed = env.corsOrigin
+    .split(',')
+    .map((o) => o.trim().replace(/\/$/, ''))
+    .filter(Boolean);
+  return allowed.length === 1 ? allowed[0] : allowed;
 }

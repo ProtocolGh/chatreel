@@ -4,11 +4,14 @@
   "main": "index.ts",
   "scripts": {
     "start": "expo start --dev-client --lan",
+    "start:emu": "node scripts/adb-reverse.js && expo start --dev-client --lan --clear",
+    "reset:dev": "node scripts/reset-dev-cache.js",
     "android": "expo run:android",
     "android:usb": "node scripts/adb-reverse.js && expo run:android --device",
     "adb:reverse": "node scripts/adb-reverse.js",
     "ios": "expo run:ios",
-    "prebuild": "expo prebuild"
+    "prebuild": "expo prebuild",
+    "build:web": "expo export -p web"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.2",

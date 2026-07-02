@@ -15,7 +15,7 @@ services:
       - key: SUPABASE_ANON_KEY
         sync: false
       - key: CORS_ORIGIN
-        value: "*"
+        value: "https://chat-reel.vercel.app"
       - key: LIVEKIT_API_KEY
         sync: false
       - key: LIVEKIT_API_SECRET
