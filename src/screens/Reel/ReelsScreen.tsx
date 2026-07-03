@@ -344,6 +344,22 @@ export default function ReelsScreen() {
     []
   );
 
+  const handlePullRefresh = useCallback(async () => {
+    if (currentIndex !== 0) {
+      flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
+      setCurrentIndex(0);
+      setProgress(0);
+    }
+    await refresh();
+    void refreshFollowedAuthors();
+    const first = reelsRef.current[0];
+    if (first) {
+      activeReelIdRef.current = first.id;
+      void playActiveReel(first.id);
+      setIsPlaying(true);
+    }
+  }, [currentIndex, refresh, refreshFollowedAuthors, playActiveReel]);
+
   const togglePlayPause = useCallback(async () => {
     const reelId = activeReelIdRef.current;
     const v = getActivePlayer(reelId);
@@ -827,9 +843,27 @@ export default function ReelsScreen() {
             </TouchableOpacity>
           </View>
 
-          <View style={styles.topIconBtnSpacer} />
+          <TouchableOpacity
+            style={styles.topIconBtn}
+            onPress={() => void handlePullRefresh()}
+            disabled={refreshing}
+            accessibilityLabel="Refresh reels"
+          >
+            {refreshing ? (
+              <ActivityIndicator size="small" color="#fff" />
+            ) : (
+              <Ionicons name="refresh" size={22} color="#fff" />
+            )}
+          </TouchableOpacity>
         </View>
       </LinearGradient>
+
+      {refreshing && (
+        <View style={[styles.refreshBanner, { top: insets.top + 52 }]} pointerEvents="none">
+          <ActivityIndicator size="small" color="#fff" />
+          <Text style={styles.refreshBannerText}>Refreshing feed…</Text>
+        </View>
+      )}
 
       {(activeCount > 0 || summary.error > 0) && (
         <TouchableOpacity
@@ -857,7 +891,6 @@ export default function ReelsScreen() {
         extraData={currentIndex}
         renderItem={renderReel}
         keyExtractor={(item) => item.id}
-        pagingEnabled
         showsVerticalScrollIndicator={false}
         onViewableItemsChanged={onViewableItemsChanged}
         viewabilityConfig={viewabilityConfig}
@@ -865,6 +898,9 @@ export default function ReelsScreen() {
         snapToInterval={reelHeight}
         snapToAlignment="start"
         decelerationRate="fast"
+        bounces
+        alwaysBounceVertical
+        overScrollMode="always"
         removeClippedSubviews={Platform.OS === 'android' ? false : undefined}
         windowSize={5}
         maxToRenderPerBatch={2}
@@ -876,9 +912,12 @@ export default function ReelsScreen() {
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
-            onRefresh={refresh}
+            onRefresh={() => void handlePullRefresh()}
             tintColor="#fff"
-            colors={['#fff']}
+            colors={['#fff', '#1e90ff']}
+            progressViewOffset={insets.top + 48}
+            title={Platform.OS === 'ios' ? 'Pull to refresh' : undefined}
+            titleColor="rgba(255,255,255,0.7)"
           />
         }
         ListEmptyComponent={
@@ -1107,6 +1146,19 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
   },
+  refreshBanner: {
+    position: 'absolute',
+    alignSelf: 'center',
+    zIndex: 25,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+  },
+  refreshBannerText: { color: '#fff', fontSize: 13, fontWeight: '600' },
   feedPills: {
     flexDirection: 'row',
     alignItems: 'center',
