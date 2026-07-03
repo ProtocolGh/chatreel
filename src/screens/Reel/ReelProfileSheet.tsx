@@ -288,6 +288,7 @@ export default function ReelProfileSheet({ reel, onClose, onFollowStateChange }:
             initialIndex={immersiveIndex}
             onClose={() => setImmersiveIndex(null)}
             onReelsChange={setPosts}
+            disableProfileNavigation
           />
         )}
       </Modal>

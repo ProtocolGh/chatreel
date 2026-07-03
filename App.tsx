@@ -5,6 +5,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { AuthProvider } from './src/context/AuthContext';
+import { ChatSettingsProvider } from './src/context/ChatSettingsContext';
 import { RealtimeProvider } from './src/components/RealtimeProvider';
 import { PushNotificationRegistrar } from './src/components/PushNotificationRegistrar';
 import { Provider as PaperProvider } from 'react-native-paper';
@@ -27,6 +28,7 @@ export default function App() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
         <PaperProvider>
+          <ChatSettingsProvider>
           <AuthProvider>
             <RealtimeProvider>
               <PushNotificationRegistrar />
@@ -36,6 +38,7 @@ export default function App() {
             </RealtimeProvider>
             <StatusBar style="auto" />
           </AuthProvider>
+          </ChatSettingsProvider>
         </PaperProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>

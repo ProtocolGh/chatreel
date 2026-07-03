@@ -24,13 +24,15 @@ import ReelCommentSheet from './ReelCommentSheet';
 import ReelShareSheet from './ReelShareSheet';
 import ReelProfileSheet from './ReelProfileSheet';
 import { useReelVideoPrefetch } from './useReelVideoPrefetch';
-import { REEL_ACTION_RAIL_WIDTH, REEL_BOTTOM_INSET } from './reelVideoLayout';
+import { REEL_ACTION_RAIL_WIDTH, REEL_BOTTOM_INSET, getReelFrameDimensions } from './reelVideoLayout';
 
 type Props = {
   reels: ReelDTO[];
   initialIndex?: number;
   onClose: () => void;
   onReelsChange?: (reels: ReelDTO[]) => void;
+  /** When true, avatar/username are not tappable (e.g. viewing from a profile grid). */
+  disableProfileNavigation?: boolean;
 };
 
 function formatCount(n: number): string {
@@ -43,9 +45,19 @@ function authorLabel(reel: ReelDTO): string {
   return reel.author?.display_name?.trim() || reel.author?.email?.split('@')[0] || 'unknown';
 }
 
-export function ReelImmersiveViewer({ reels: initialReels, initialIndex = 0, onClose, onReelsChange }: Props) {
+export function ReelImmersiveViewer({
+  reels: initialReels,
+  initialIndex = 0,
+  onClose,
+  onReelsChange,
+  disableProfileNavigation = false,
+}: Props) {
   const insets = useSafeAreaInsets();
-  const { width: reelWidth, height: reelHeight } = useWindowDimensions();
+  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
+  const { frameWidth: reelWidth, frameHeight: reelHeight, usePhoneFrame } = useMemo(
+    () => getReelFrameDimensions(windowWidth, windowHeight),
+    [windowWidth, windowHeight]
+  );
   const [reels, setReels] = useState(initialReels);
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
   const [isMuted, setIsMuted] = useState(false);
@@ -336,15 +348,27 @@ export function ReelImmersiveViewer({ reels: initialReels, initialIndex = 0, onC
           <LinearGradient colors={['transparent', 'rgba(0,0,0,0.85)']} style={styles.bottomGradient} pointerEvents="box-none">
             <View style={[styles.captionContainer, { marginBottom: REEL_BOTTOM_INSET + insets.bottom, paddingRight: REEL_ACTION_RAIL_WIDTH + 8 }]}>
               <View style={styles.userInfo}>
-                <TouchableOpacity onPress={() => setOpenProfile(item)}>
-                  {avatar ? (
-                    <Image source={{ uri: avatar }} style={styles.avatar} />
-                  ) : (
-                    <View style={[styles.avatar, styles.avatarFallback]}>
-                      <Text style={styles.avatarFallbackText}>{authorLabel(item).charAt(0).toUpperCase()}</Text>
-                    </View>
-                  )}
-                </TouchableOpacity>
+                {disableProfileNavigation ? (
+                  <>
+                    {avatar ? (
+                      <Image source={{ uri: avatar }} style={styles.avatar} />
+                    ) : (
+                      <View style={[styles.avatar, styles.avatarFallback]}>
+                        <Text style={styles.avatarFallbackText}>{authorLabel(item).charAt(0).toUpperCase()}</Text>
+                      </View>
+                    )}
+                  </>
+                ) : (
+                  <TouchableOpacity onPress={() => setOpenProfile(item)}>
+                    {avatar ? (
+                      <Image source={{ uri: avatar }} style={styles.avatar} />
+                    ) : (
+                      <View style={[styles.avatar, styles.avatarFallback]}>
+                        <Text style={styles.avatarFallbackText}>{authorLabel(item).charAt(0).toUpperCase()}</Text>
+                      </View>
+                    )}
+                  </TouchableOpacity>
+                )}
                 <Text style={styles.username}>@{authorLabel(item)}</Text>
               </View>
               {!!item.caption && (
@@ -352,6 +376,12 @@ export function ReelImmersiveViewer({ reels: initialReels, initialIndex = 0, onC
                   {item.caption}
                 </Text>
               )}
+              <View style={styles.musicContainer}>
+                <Ionicons name="musical-notes" size={14} color="rgba(255,255,255,0.85)" />
+                <Text style={styles.music} numberOfLines={1}>
+                  Original audio · @{authorLabel(item)}
+                </Text>
+              </View>
             </View>
           </LinearGradient>
 
@@ -396,11 +426,13 @@ export function ReelImmersiveViewer({ reels: initialReels, initialIndex = 0, onC
       registerVideoRef,
       resolveUri,
       toggleLike,
+      disableProfileNavigation,
     ]
   );
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, usePhoneFrame && styles.containerPhoneFrame]}>
+      <View style={[styles.feedColumn, usePhoneFrame && styles.feedColumnPhone, { width: reelWidth }]}>
       <StatusBar barStyle="light-content" />
       <FlatList
         ref={flatListRef}
@@ -423,6 +455,7 @@ export function ReelImmersiveViewer({ reels: initialReels, initialIndex = 0, onC
       <TouchableOpacity style={[styles.closeBtn, { top: insets.top + 8 }]} onPress={onClose}>
         <Ionicons name="chevron-back" size={26} color="#fff" />
       </TouchableOpacity>
+      </View>
 
       <Modal visible={!!openComments} animationType="slide" transparent onRequestClose={() => setOpenComments(null)}>
         <View style={styles.sheetBackdrop}>
@@ -450,7 +483,7 @@ export function ReelImmersiveViewer({ reels: initialReels, initialIndex = 0, onC
         </View>
       </Modal>
 
-      <Modal visible={!!openProfile} animationType="slide" transparent onRequestClose={() => setOpenProfile(null)}>
+      <Modal visible={!!openProfile && !disableProfileNavigation} animationType="slide" transparent onRequestClose={() => setOpenProfile(null)}>
         <View style={styles.sheetBackdrop}>
           <TouchableOpacity style={StyleSheet.absoluteFill} onPress={() => setOpenProfile(null)} />
           <View style={styles.sheet}>
@@ -464,6 +497,16 @@ export function ReelImmersiveViewer({ reels: initialReels, initialIndex = 0, onC
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#000' },
+  containerPhoneFrame: { backgroundColor: '#0a0a0a' },
+  feedColumn: { flex: 1, alignSelf: 'stretch' },
+  feedColumnPhone: {
+    alignSelf: 'center',
+    maxWidth: '100%',
+    borderLeftWidth: StyleSheet.hairlineWidth,
+    borderRightWidth: StyleSheet.hairlineWidth,
+    borderColor: '#1f1f1f',
+    overflow: 'hidden',
+  },
   videoTouch: { flex: 1 },
   closeBtn: {
     position: 'absolute',
@@ -512,6 +555,8 @@ const styles = StyleSheet.create({
   avatarFallbackText: { color: '#fff', fontWeight: '700' },
   username: { color: '#fff', fontWeight: '700', fontSize: 15 },
   caption: { color: '#fff', fontSize: 14, lineHeight: 20 },
+  musicContainer: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 6 },
+  music: { color: 'rgba(255,255,255,0.85)', fontSize: 12, flex: 1 },
   actionButtons: {
     position: 'absolute',
     right: 8,

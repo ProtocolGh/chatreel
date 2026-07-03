@@ -320,6 +320,7 @@ export default function ReelProfileView({ profileId, isSelf = false, showBack = 
             initialIndex={immersiveIndex}
             onClose={() => setImmersiveIndex(null)}
             onReelsChange={setPosts}
+            disableProfileNavigation
           />
         )}
       </Modal>

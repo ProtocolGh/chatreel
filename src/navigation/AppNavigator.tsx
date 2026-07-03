@@ -27,6 +27,7 @@ import { WebMainPanel, WebReelsSidebarPlaceholder } from './WebMainPanel';
 import PostReelScreen from '../screens/Reel/PostReelScreen';
 import ReelPreviewScreen from '../screens/Reel/ReelPreviewScreen';
 import NewGroupScreen from '../screens/Group/NewGroupScreen';
+import ChatSettingsScreen from '../screens/Chat/ChatSettingsScreen';
 import QRCodeScreen from '../screens/QR/QRCodeScreen';
 import QRScannerScreen from '../screens/QR/QRScannerScreen';
 import AddFriendScreen from '../screens/Friends/AddFriendScreen';
@@ -65,6 +66,7 @@ const ChatStack = ({ setSelectedChat }: ChatStackProps) => {
     {!setSelectedChat && <Stack.Screen name="ChatRoom" component={ChatRoomScreen} />}
     {!setSelectedChat && <Stack.Screen name="EmptyChat" component={EmptyChatScreen} />}
     <Stack.Screen name="Profile" component={ProfileScreen} />
+    <Stack.Screen name="Settings" component={ChatSettingsScreen} />
     <Stack.Screen name="Contact" component={ContactScreen} />
     <Stack.Screen name="NewGroup" component={NewGroupScreen} />
     <Stack.Screen name="QRCode" component={QRCodeScreen} />

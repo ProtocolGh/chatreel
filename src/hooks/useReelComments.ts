@@ -9,6 +9,7 @@ type State = {
   cursor: string | null;
   hasMore: boolean;
   error: string | null;
+  postError: string | null;
   posting: boolean;
 };
 
@@ -22,6 +23,7 @@ export function useReelComments(reelId: string | null) {
     cursor: null,
     hasMore: false,
     error: null,
+    postError: null,
     posting: false,
   });
 
@@ -39,6 +41,7 @@ export function useReelComments(reelId: string | null) {
         cursor: next_cursor,
         hasMore: Boolean(next_cursor),
         error: null,
+        postError: null,
         posting: false,
       });
     } catch (err) {
@@ -78,8 +81,8 @@ export function useReelComments(reelId: string | null) {
 
   const post = useCallback(
     async (content: string, parentId?: string) => {
-      if (!reelId || !content.trim()) return null;
-      setState((s) => ({ ...s, posting: true }));
+      if (!reelId || !content.trim()) return { comment: null as ReelCommentDTO | null, error: null as string | null };
+      setState((s) => ({ ...s, posting: true, postError: null }));
       try {
         const { comment } = await api.reels.postComment(reelId, content.trim(), parentId);
         setState((s) => ({
@@ -88,15 +91,18 @@ export function useReelComments(reelId: string | null) {
             ? [...s.comments, comment]
             : [comment, ...s.comments.filter((c) => c.id !== comment.id)],
           posting: false,
+          postError: null,
         }));
-        return comment;
+        return { comment, error: null };
       } catch (err) {
+        const message =
+          err instanceof ApiError ? err.message : 'Failed to post comment';
         setState((s) => ({
           ...s,
           posting: false,
-          error: err instanceof ApiError ? err.message : 'Failed to post comment',
+          postError: message,
         }));
-        return null;
+        return { comment: null, error: message };
       }
     },
     [reelId]

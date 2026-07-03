@@ -12,10 +12,8 @@ import {
   filterVisibleReels,
   enrichReels,
   getAcceptedFriendIds,
-  rankReelsForViewer,
   ReelRow,
   ReelVisibility,
-  visibilityFilterClause,
 } from '../services/reels.service';
 import { sendPushToUserSafe, getAuthUserIdByProfileId } from '../services/push.service';
 import { queueReelHlsTranscode } from '../services/reelTranscode.service';
@@ -91,27 +89,24 @@ router.get(
     if (!profileId) return res.status(404).json({ error: 'Profile not found' });
 
     const limit = Math.min(Number(req.query.limit ?? 10), 30);
-    const fetchLimit = Math.min(Math.max(limit * 6, 60), 180);
     const cursor = req.query.cursor as string | undefined; // ISO created_at
 
     const friendSet = await getAcceptedFriendIds(profileId);
     const friendIds = Array.from(friendSet);
 
-    let query = supabaseAdmin
-      .from('reels')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .order('id', { ascending: false })
-      .limit(fetchLimit);
+    const { fetchCandidateReels, recommendReelsForUser } = await import(
+      '../services/reelRecommendation.service'
+    );
 
-    if (cursor) query = query.lt('created_at', cursor);
+    const candidates = await fetchCandidateReels({
+      profileId,
+      friendIds,
+      viewerAuthUserId: req.userId!,
+      cursor,
+      targetCount: 500,
+    });
 
-    query = query.or(visibilityFilterClause(profileId, friendIds));
-
-    const { data, error } = await query;
-    if (error) return res.status(500).json({ error: error.message });
-
-    const ranked = await rankReelsForViewer((data ?? []) as ReelRow[], profileId);
+    const ranked = await recommendReelsForUser(profileId, candidates, { limit: 20 });
     const page = ranked.slice(0, limit);
     const enriched = await enrichReels(page, profileId);
     const nextCursor = ranked.length > limit ? ranked[limit - 1].created_at : null;
@@ -300,20 +295,22 @@ router.get(
 
     const friendSet = await getAcceptedFriendIds(profileId);
     const friendIds = Array.from(friendSet);
+    const escaped = q.replace(/[%_]/g, '\\$&');
+    const captionFilter = `caption.ilike.%${escaped}%,caption.ilike.${escaped}%`;
 
     const [reelsRes, profilesRes] = await Promise.all([
       supabaseAdmin
         .from('reels')
         .select('*')
-        .ilike('caption', `%${q}%`)
+        .or(captionFilter)
         .order('created_at', { ascending: false })
-        .limit(24),
+        .limit(20),
       supabaseAdmin
         .from('profiles')
         .select('id, user_id, display_name, email, avatar_url')
-        .or(`display_name.ilike.%${q}%,email.ilike.%${q}%`)
+        .or(`display_name.ilike.%${escaped}%,email.ilike.%${escaped}%`)
         .neq('id', profileId)
-        .limit(16),
+        .limit(12),
     ]);
 
     if (reelsRes.error) return res.status(500).json({ error: reelsRes.error.message });
@@ -327,7 +324,7 @@ router.get(
         .select('*')
         .in('author_id', profileIds)
         .order('created_at', { ascending: false })
-        .limit(24);
+        .limit(20);
       if (authorErr) return res.status(500).json({ error: authorErr.message });
       authorReels = (byAuthor ?? []) as ReelRow[];
     }
@@ -687,6 +684,17 @@ router.post(
     if (error && !/duplicate key|unique constraint/i.test(error.message)) {
       return res.status(500).json({ error: error.message });
     }
+
+    void import('../services/reelRecommendation.service').then(({ recordEngagementEvent }) =>
+      recordEngagementEvent({
+        profileId,
+        reelId,
+        eventType: 'view',
+        completionRate: Number(req.body?.completion_rate) || undefined,
+        watchMs: Number(req.body?.watch_ms) || undefined,
+      })
+    );
+
     return res.json({ success: true });
   })
 );
@@ -717,24 +725,61 @@ router.get(
     const limit = Math.min(Number(req.query.limit ?? 30), 100);
     const cursor = req.query.cursor as string | undefined;
 
-    let query = supabaseAdmin
+    const selectCols =
+      `id, reel_id, user_id, parent_id, content, created_at,
+       author:profiles!reel_comments_user_id_fkey(id, user_id, display_name, email, avatar_url)`;
+
+    let parentQuery = supabaseAdmin
       .from('reel_comments')
-      .select(
-        `id, reel_id, user_id, parent_id, content, created_at,
-         author:profiles!reel_comments_user_id_fkey(id, user_id, display_name, email, avatar_url)`
-      )
+      .select(selectCols)
       .eq('reel_id', reelId)
+      .is('parent_id', null)
       .order('created_at', { ascending: false })
       .limit(limit);
 
-    if (cursor) query = query.lt('created_at', cursor);
+    if (cursor) parentQuery = parentQuery.lt('created_at', cursor);
 
-    const { data, error } = await query;
-    if (error) return res.status(500).json({ error: error.message });
+    const { data: parents, error: parentErr } = await parentQuery;
+    if (parentErr) {
+      if (parentErr.message.includes('parent_id')) {
+        let fallback = supabaseAdmin
+          .from('reel_comments')
+          .select(selectCols.replace('parent_id, ', ''))
+          .eq('reel_id', reelId)
+          .order('created_at', { ascending: false })
+          .limit(limit);
+        if (cursor) fallback = fallback.lt('created_at', cursor);
+        const { data, error } = await fallback;
+        if (error) return res.status(500).json({ error: error.message });
+        const rows = (data ?? []) as unknown as Array<{ created_at: string }>;
+        const next_cursor =
+          rows.length === limit ? rows[rows.length - 1].created_at : null;
+        return res.json({ comments: data ?? [], next_cursor });
+      }
+      return res.status(500).json({ error: parentErr.message });
+    }
 
+    const parentIds = (parents ?? []).map((p) => p.id as string);
+    let replies: typeof parents = [];
+    if (parentIds.length) {
+      const { data: replyRows, error: replyErr } = await supabaseAdmin
+        .from('reel_comments')
+        .select(selectCols)
+        .eq('reel_id', reelId)
+        .in('parent_id', parentIds)
+        .order('created_at', { ascending: true });
+      if (replyErr && !replyErr.message.includes('parent_id')) {
+        return res.status(500).json({ error: replyErr.message });
+      }
+      replies = replyRows ?? [];
+    }
+
+    const comments = [...(parents ?? []), ...replies];
     const next_cursor =
-      data && data.length === limit ? (data[data.length - 1].created_at as string) : null;
-    return res.json({ comments: data ?? [], next_cursor });
+      parents && parents.length === limit
+        ? (parents[parents.length - 1].created_at as string)
+        : null;
+    return res.json({ comments, next_cursor });
   })
 );
 
@@ -788,7 +833,15 @@ router.post(
       )
       .single();
 
-    if (error) return res.status(500).json({ error: error.message });
+    if (error) {
+      if (error.message.includes('parent_id') && body.parent_id) {
+        return res.status(503).json({
+          error:
+            'Comment replies are not enabled on the database yet. Apply migration 020_reel_comment_replies.sql.',
+        });
+      }
+      return res.status(500).json({ error: error.message });
+    }
 
     if (reel.author_id !== profileId) {
       const authUserId = await getAuthUserIdByProfileId(reel.author_id as string);

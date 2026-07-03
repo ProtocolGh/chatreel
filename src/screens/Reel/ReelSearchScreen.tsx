@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -38,6 +38,8 @@ export default function ReelSearchScreen() {
   const [profiles, setProfiles] = useState<ProfileRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
+  const cacheRef = useRef<Map<string, { reels: ReelDTO[]; profiles: ProfileRow[] }>>(new Map());
 
   useEffect(() => {
     const q = query.trim();
@@ -48,31 +50,51 @@ export default function ReelSearchScreen() {
       return;
     }
 
+    const cached = cacheRef.current.get(q.toLowerCase());
+    if (cached) {
+      setReels(cached.reels);
+      setProfiles(cached.profiles);
+      setError(null);
+    }
+
     let alive = true;
     const timer = setTimeout(() => {
+      abortRef.current?.abort();
+      const controller = new AbortController();
+      abortRef.current = controller;
       setLoading(true);
       api.reels
-        .search(q)
+        .search(q, { signal: controller.signal })
         .then((res) => {
           if (!alive) return;
-          setReels(res.reels ?? []);
-          setProfiles((res.profiles ?? []) as ProfileRow[]);
+          const nextReels = res.reels ?? [];
+          const nextProfiles = (res.profiles ?? []) as ProfileRow[];
+          cacheRef.current.set(q.toLowerCase(), { reels: nextReels, profiles: nextProfiles });
+          if (cacheRef.current.size > 40) {
+            const first = cacheRef.current.keys().next().value;
+            if (first) cacheRef.current.delete(first);
+          }
+          setReels(nextReels);
+          setProfiles(nextProfiles);
           setError(null);
         })
         .catch((err) => {
-          if (!alive) return;
+          if (!alive || (err as Error).name === 'AbortError') return;
           setError(err instanceof ApiError ? err.message : 'Search failed');
-          setReels([]);
-          setProfiles([]);
+          if (!cached) {
+            setReels([]);
+            setProfiles([]);
+          }
         })
         .finally(() => {
           if (alive) setLoading(false);
         });
-    }, 300);
+    }, 120);
 
     return () => {
       alive = false;
       clearTimeout(timer);
+      abortRef.current?.abort();
     };
   }, [query]);
 

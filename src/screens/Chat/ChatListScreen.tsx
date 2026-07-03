@@ -31,6 +31,7 @@ import { useGroupList, type Group } from '../../hooks/useGroupList'
 import { useIncomingFriendRequestCount } from '../../hooks/useIncomingFriendRequestCount'
 import { useCurrentProfileId } from '../../hooks/useCurrentProfileId'
 import { useFriendshipsRealtime } from '../../hooks/useFriendshipsRealtime'
+import { useChatSettings } from '../../context/ChatSettingsContext'
 import { api } from '../../lib/api'
 import FriendRequestsScreen from './FriendRequestsScreen'
 import {
@@ -100,6 +101,7 @@ type AllFeedItem =
 
 export default function ChatListScreen({ setSelectedChat }: Props) {
   const { user } = useAuth()
+  const { theme } = useChatSettings()
   const myProfileId = useCurrentProfileId()
   const navigation = useNavigation<any>()
   const { width } = useWindowDimensions()
@@ -957,11 +959,17 @@ export default function ChatListScreen({ setSelectedChat }: Props) {
 
 
   return (
-    <SafeAreaView style={styles.container} edges={['left', 'right']}>
-      <View style={[styles.navbar, isNarrow && styles.navbarNarrow]}>
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.listBg }]} edges={['left', 'right']}>
+      <View
+        style={[
+          styles.navbar,
+          isNarrow && styles.navbarNarrow,
+          { backgroundColor: theme.headerBg, borderBottomColor: `${theme.accent}33` },
+        ]}
+      >
         <View style={styles.brandRow}>
           <Image source={APP_LOGO} style={styles.appLogo} resizeMode="contain" />
-          <Text style={styles.appName}>{APP_NAME}</Text>
+          <Text style={[styles.appName, { color: theme.headerText }]}>{APP_NAME}</Text>
         </View>
 
         <View style={styles.navbarSpacer} />
@@ -978,7 +986,7 @@ export default function ChatListScreen({ setSelectedChat }: Props) {
           <Ionicons
             name={searchOpen ? 'close' : 'search'}
             size={22}
-            color={searchOpen || searchQuery.length > 0 ? '#007AFF' : '#4a5568'}
+            color={searchOpen || searchQuery.length > 0 ? theme.primary : theme.headerText}
           />
         </TouchableOpacity>
 
@@ -1002,7 +1010,7 @@ export default function ChatListScreen({ setSelectedChat }: Props) {
             },
           ]}
         >
-          <LinearGradient colors={['#4c8bf5', '#1c6dfd']} style={styles.gradientBorder}>
+          <LinearGradient colors={[theme.accent, theme.primary]} style={styles.gradientBorder}>
             <View style={styles.searchWrapper}>
               <TextInput
                 ref={searchInputRef}

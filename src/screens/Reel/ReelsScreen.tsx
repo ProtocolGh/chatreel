@@ -36,7 +36,7 @@ import {
 import ReelCommentSheet from './ReelCommentSheet';
 import ReelShareSheet from './ReelShareSheet';
 import ReelProfileSheet from './ReelProfileSheet';
-import { SCREEN_HEIGHT, SCREEN_WIDTH, REEL_ACTION_RAIL_WIDTH, REEL_BOTTOM_INSET } from './reelVideoLayout';
+import { SCREEN_HEIGHT, SCREEN_WIDTH, REEL_ACTION_RAIL_WIDTH, REEL_BOTTOM_INSET, getReelFrameDimensions } from './reelVideoLayout';
 import { useReelVideoPrefetch } from './useReelVideoPrefetch';
 import { ReelFeedMedia } from './ReelFeedMedia';
 import { reelTabBarOffset } from './ReelsTabBar';
@@ -81,8 +81,11 @@ function avatarFor(reel: ReelDTO): string | null {
 
 export default function ReelsScreen() {
   const insets = useSafeAreaInsets();
-  const { width: reelWidth, height: windowHeight } = useWindowDimensions();
-  const reelHeight = windowHeight;
+  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
+  const { frameWidth: reelWidth, frameHeight: reelHeight, usePhoneFrame } = useMemo(
+    () => getReelFrameDimensions(windowWidth, windowHeight),
+    [windowWidth, windowHeight]
+  );
   const navigation = useNavigation<any>();
   const isReelTabFocused = useIsFocused();
   const [isMainAppTabFocused, setIsMainAppTabFocused] = useState(true);
@@ -792,8 +795,10 @@ export default function ReelsScreen() {
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, usePhoneFrame && styles.containerPhoneFrame]}>
       <StatusBar barStyle="light-content" backgroundColor="#000" translucent />
+
+      <View style={[styles.feedColumn, usePhoneFrame && styles.feedColumnPhone, { width: reelWidth }]}>
 
       <LinearGradient
         colors={['rgba(0,0,0,0.55)', 'transparent']}
@@ -913,6 +918,7 @@ export default function ReelsScreen() {
           ) : null
         }
       />
+      </View>
 
       <Modal
         visible={!!openComments}
@@ -1059,6 +1065,16 @@ export default function ReelsScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#000' },
+  containerPhoneFrame: { backgroundColor: '#0a0a0a' },
+  feedColumn: { flex: 1, alignSelf: 'stretch' },
+  feedColumnPhone: {
+    alignSelf: 'center',
+    maxWidth: '100%',
+    borderLeftWidth: StyleSheet.hairlineWidth,
+    borderRightWidth: StyleSheet.hairlineWidth,
+    borderColor: '#1f1f1f',
+    overflow: 'hidden',
+  },
   center: { justifyContent: 'center', alignItems: 'center' },
   reelContainer: { position: 'relative', backgroundColor: '#000', overflow: 'hidden' },
   videoTouchLayer: StyleSheet.absoluteFillObject,

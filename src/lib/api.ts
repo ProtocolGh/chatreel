@@ -176,6 +176,7 @@ type RequestOptions = {
   method?: string;
   body?: unknown;
   auth?: boolean;
+  signal?: AbortSignal;
 };
 
 async function getAccessToken(): Promise<string | null> {
@@ -187,7 +188,7 @@ async function getAccessToken(): Promise<string | null> {
 }
 
 export async function apiRequest<T>(path: string, options: RequestOptions = {}): Promise<T> {
-  const { method = 'GET', body, auth = true } = options;
+  const { method = 'GET', body, auth = true, signal } = options;
 
   const doFetch = async (token: string | null) => {
     const headers: Record<string, string> = {
@@ -199,6 +200,7 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
       method,
       headers,
       body: body !== undefined ? JSON.stringify(body) : undefined,
+      signal,
     });
     const data = await res.json().catch(() => ({}));
     return { res, data };
@@ -502,9 +504,10 @@ export const api = {
       apiRequest<{ reels: ReelDTO[] }>(`/api/reels/me?limit=${limit}`),
     inbox: (limit = 40) =>
       apiRequest<{ items: ReelInboxItemDTO[] }>(`/api/reels/inbox?limit=${limit}`),
-    search: (q: string) =>
+    search: (q: string, opts?: { signal?: AbortSignal }) =>
       apiRequest<{ reels: ReelDTO[]; profiles: ReelAuthorDTO[] }>(
-        `/api/reels/search?q=${encodeURIComponent(q)}`
+        `/api/reels/search?q=${encodeURIComponent(q)}`,
+        { signal: opts?.signal }
       ),
     byUser: (profileId: string, limit = 30) =>
       apiRequest<{ reels: ReelDTO[] }>(`/api/reels/user/${profileId}?limit=${limit}`),

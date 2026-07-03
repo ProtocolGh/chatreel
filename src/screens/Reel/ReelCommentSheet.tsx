@@ -57,6 +57,7 @@ export default function ReelCommentSheet({
     loadingMore,
     hasMore,
     error,
+    postError,
     posting,
     post,
     remove,
@@ -86,11 +87,17 @@ export default function ReelCommentSheet({
 
   const send = async () => {
     if (!text.trim()) return;
-    const result = await post(text, replyTo?.id);
-    if (result) {
+    const { comment, error: postErr } = await post(text, replyTo?.id);
+    if (comment) {
       setText('');
       setReplyTo(null);
       onCommentAdded?.();
+    } else {
+      Alert.alert(
+        'Could not post comment',
+        postErr ??
+          'Replies require database migration 020_reel_comment_replies.sql on Supabase.'
+      );
     }
   };
 
@@ -163,7 +170,7 @@ export default function ReelCommentSheet({
         <View style={styles.center}>
           <ActivityIndicator color="#fff" />
         </View>
-      ) : error ? (
+      ) : error && comments.length === 0 ? (
         <View style={styles.center}>
           <Text style={styles.errorText}>{error}</Text>
         </View>
@@ -193,6 +200,10 @@ export default function ReelCommentSheet({
           }
         />
       )}
+
+      {postError ? (
+        <Text style={styles.postErrorText}>{postError}</Text>
+      ) : null}
 
       {replyTo && (
         <View style={styles.replyBanner}>
@@ -294,4 +305,10 @@ const styles = StyleSheet.create({
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   emptyText: { color: '#aaa', marginTop: 12 },
   errorText: { color: '#ff6b6b', marginHorizontal: 24, textAlign: 'center' },
+  postErrorText: {
+    color: '#ff6b6b',
+    fontSize: 12,
+    paddingHorizontal: 16,
+    paddingBottom: 6,
+  },
 });

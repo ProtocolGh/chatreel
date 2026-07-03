@@ -1,7 +1,18 @@
-import { Dimensions } from 'react-native';
+import { Dimensions, Platform } from 'react-native';
 import type { ReelDTO } from '../../lib/api';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+
+/** Max width of the reel column on wide web layouts (TikTok / Shorts style). */
+export const REEL_PHONE_MAX_WIDTH = 430;
+
+export function getReelFrameDimensions(windowWidth: number, windowHeight: number) {
+  const usePhoneFrame =
+    Platform.OS === 'web' && windowWidth > REEL_PHONE_MAX_WIDTH + 64;
+  const frameWidth = usePhoneFrame ? REEL_PHONE_MAX_WIDTH : windowWidth;
+  const frameHeight = windowHeight;
+  return { frameWidth, frameHeight, usePhoneFrame };
+}
 
 /** Space to keep captions from sitting under the right engagement column. */
 export const REEL_ACTION_RAIL_WIDTH = 72;
